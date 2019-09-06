@@ -1,4 +1,6 @@
 # Ayyhoo-Server
+**WIP: Absolutely nothing works yet.**
+
 Using yahoo messenger 5.5.1228 version, with YMSG protocol v9/10  
 http://www.oldversion.com/windows/yahoo-messenger-5-5-1228  
 
