@@ -1,0 +1,17 @@
+{"users":
+    {   "aa": 
+        { 
+            "friend_groups":
+                { "(No Group)": "ab" },
+            "details": 
+                { "passwd" : "" }
+        },
+        "ab":
+        { 
+            "friend_groups":
+                { "(No Group)": "aa" },
+            "details": 
+                { "passwd" : "" }
+        }
+    } 
+}

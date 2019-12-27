@@ -8,6 +8,8 @@ import (
     "bytes"
     "bufio"
     "io"
+    "io/ioutil"
+    "encoding/json"
 //    _ "github.com/mattn/go-sqlite3"
 )
 
@@ -17,6 +19,15 @@ const (
     CONN_TYPE = "tcp"
     PROTOCOL_VER = 10
 )
+
+//type User struct {
+//    friend_groups map[string]string
+//    passwd string
+//}
+//
+//type UserMain struct {
+//    users map[string]User
+//}
 
 type connection struct {
     sess int
@@ -28,11 +39,16 @@ var usernames map[string]int //username -> session no
 var get_usernames map[int]string //session no -> username
 var connections map[int]net.Conn //session no -> connection
 var sessioncount = 0
+var userinfo map[string]map[string]map[string]map[string]string
 
 func main() {
     connections = make(map[int]net.Conn)
     usernames = make(map[string]int)
     get_usernames = make(map[int]string)
+
+    b, err := ioutil.ReadFile("users.json")
+    err = json.Unmarshal(b, &userinfo)
+
     l, err := net.Listen(CONN_TYPE, ":"+CONN_PORT)
     if err != nil {
         fmt.Println("Error listening:", err.Error())
@@ -139,12 +155,16 @@ func handleRequest(conn net.Conn) {
             go send(conn, 76, 1, sess, []string{})
         } else if buf[11] == 87 {
             //auth
-            // FIXME: actually implement authorization
             username := datamap["1"]
-            usernames[username] = sess
-            get_usernames[sess] = username
-            go send(conn, 87, 1, sess, []string{"1", username,
-                 "94", "AA.BBCCDDEEGGHHIIH_HII--"})
+            if info, ok := userinfo["users"][username]; ok {
+                usernames[username] = sess
+                get_usernames[sess] = username
+                _ = info
+                //passwd := info["details"]["passwd"]
+                // FIXME: construct challenge according to password
+                go send(conn, 87, 1, sess, []string{"1", username,
+                        "94", "AA.BBCCDDEEGGHHIIH_HII--"})
+            }
         } else if buf[11] == 84 {
             //authresp
             // FIXME: actually implement authorization
@@ -152,7 +172,15 @@ func handleRequest(conn net.Conn) {
             // FIXME: send online status of friends
             go send(conn, 1, 0, 1, []string{"7",""})
             username := datamap["1"]
-            respdata := []string{ "87","(No Group):ab\n",
+            var friend_groups string
+            friend_groups_map := userinfo["users"][username]["friend_groups"]
+            for group := range friend_groups_map {
+                friend_groups+=group;
+                friend_groups+=":";
+                friend_groups+=friend_groups_map[group];
+                friend_groups+="\n";
+            }
+            respdata := []string{ "87",friend_groups,
                                   "88","",
                                   "89","",
                                   "59","C\x09mg=1",
