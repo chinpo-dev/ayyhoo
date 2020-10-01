@@ -252,7 +252,11 @@ func handleRequest(conn net.Conn) {
         fmt.Println(buf)
         if data_s > 0 {
             fmt.Println("Enclosed data: ", datamap)
+        } else {
+            fmt.Println("\x1B[1;31munimplemented stuff!\x1B[0m")
         }
+
+
         fmt.Println()
     }
 }
