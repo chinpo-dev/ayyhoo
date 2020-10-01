@@ -10,6 +10,8 @@ import (
     "io"
     "io/ioutil"
     "encoding/json"
+    "strings"
+    "strconv"
 //    _ "github.com/mattn/go-sqlite3"
 )
 
@@ -166,33 +168,63 @@ func handleRequest(conn net.Conn) {
                         "94", "AA.BBCCDDEEGGHHIIH_HII--"})
             }
         } else if buf[11] == 84 {
-            //authresp
-            // FIXME: actually implement authorization
-            // FIXME: send real list of friends
-            // FIXME: send online status of friends
-            go send(conn, 1, 0, 1, []string{"7",""})
-            username := datamap["1"]
-            var friend_groups string
-            friend_groups_map := userinfo["users"][username]["friend_groups"]
-            for group := range friend_groups_map {
-                friend_groups+=group;
-                friend_groups+=":";
-                friend_groups+=friend_groups_map[group];
-                friend_groups+="\n";
-            }
-            respdata := []string{ "87",friend_groups,
-                                  "88","",
-                                  "89","",
-                                  "59","C\x09mg=1",
-                                  //"59","Y\x09",
-                                  //"59","T\x09",
-                                  "3" , username,
-                                  "90","1",
-                                  "100","0",
-                                  "101","",
-                                  "102","",
-                                  "93","86400"}
-            go send(conn, 85, 1, sess, respdata) // 85: LIST
+             //authresp
+             // FIXME: actually implement authorization
+             username := datamap["1"]
+             var friend_groups string
+             var friends_list []string
+             var friends_list_online []string
+             friend_groups_map := userinfo["users"][username]["friend_groups"]
+             for group := range friend_groups_map {
+                 friend_groups+=group;
+                 friend_groups+=":";
+                 friend_groups+=friend_groups_map[group];
+                 friend_groups+="\n";
+                 friends_list = append(friends_list, strings.Split(friend_groups_map[group], ",")...)
+             }
+             for _, friend := range friends_list {
+                 if _, ok := usernames[friend]; ok {
+                     friends_list_online = append(friends_list_online, friend)
+                 }
+             }
+             logon_data := []string{"0", username,
+                                    "1", username,
+                                    "8", strconv.Itoa(len(friends_list_online))}
+             for _ ,friend := range friends_list_online {
+                 // FIXME: support proper friend status, and offlineish mode
+                 logon_data = append(logon_data, []string{"7", friend,
+                                                          "10", "0", // status
+                                                          "11", "0",
+                                                          "17", "0",
+                                                          "13", "1"}...)
+             }
+             go send(conn, 1, 0, 1, logon_data)
+             list_data := []string{"87",friend_groups,
+                                   "88","",
+                                   "89","",
+                                   "153","10",
+                                   "59","C\x09mg=1",
+                                   //"59","Y\x09",
+                                   //"59","T\x09",
+                                   "3" , username,
+                                   "90","1",
+                                   "100","0",
+                                   "101","",
+                                   "102","",
+                                   "93","86400"}
+             go send(conn, 85, 1, sess, list_data) // 85: LIST
+             // notify friends of logon
+             for _ ,friend := range friends_list_online {
+                 isback_data := []string{"7", username,
+                                         "10", "0",
+                                         "11", "0",
+                                         "17", "1",
+                                         "13", "1"}
+                 to_sess := usernames[friend]
+                 to_conn := connections[to_sess]
+                 go send(to_conn, 4, 1, to_sess, isback_data)
+             }
+
         } else if buf[11] == 18 {
             go send(conn, 18, 1, sess, []string{})
         } else if buf[11] == 6 {
